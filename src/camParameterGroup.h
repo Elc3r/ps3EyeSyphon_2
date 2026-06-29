@@ -9,7 +9,6 @@
 #define CAMPARAMETERGROUP_H_
 
 
-#include "ofParameterGroup.h"
 #include "ofParameter.h"
 #include "ofMain.h"
 

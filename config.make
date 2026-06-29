@@ -8,7 +8,7 @@
 #   The location of your root openFrameworks installation
 #       (default) OF_ROOT = ../../.. 
 ################################################################################
-OF_ROOT = /Users/fredrodrigues/Collectivism Dropbox/Fred Rodrigues/Code/OF_GITT/openFrameworks
+OF_ROOT = ../../..
 
 ################################################################################
 # PROJECT ROOT

@@ -6,21 +6,29 @@ void ofApp::setup(){
     minimised=false;
     ofSetVerticalSync(false);
     
-    //load an  file from disk and put it in an ofJson object
-    ofJson json = ofLoadJson("settings.json");
-    
-    
-    
-    
-    
     XML.loadFile("cameraSettings.xml");
-    camWidth		= XML.getValue("CAMWIDTH", 640);
-    camHeight	= XML.getValue("CAMHEIGHT", 480);
-    frameRate	= XML.getValue("FRAMERATE", 60);
-    recievePort	= XML.getValue("RECIEVEPORT", 12334);
-    sendPort =XML.getValue("SENDPORT", 12335);
-    sendIp = XML.getValue("SENDIP", "127.0.0.1");
-    minimised = XML.getValue("MINIMISED", 0);
+    auto getCameraSettingInt = [this](const string & tag, int defaultValue) {
+        if (XML.tagExists(tag)) {
+            return XML.getValue(tag, defaultValue);
+        }
+
+        return XML.getValue("settings:" + tag, defaultValue);
+    };
+    auto getCameraSettingString = [this](const string & tag, const string & defaultValue) {
+        if (XML.tagExists(tag)) {
+            return XML.getValue(tag, defaultValue);
+        }
+
+        return XML.getValue("settings:" + tag, defaultValue);
+    };
+    
+    camWidth		= getCameraSettingInt("CAMWIDTH", 640);
+    camHeight	= getCameraSettingInt("CAMHEIGHT", 480);
+    frameRate	= getCameraSettingInt("FRAMERATE", 60);
+    recievePort	= getCameraSettingInt("RECIEVEPORT", 12334);
+    sendPort = getCameraSettingInt("SENDPORT", 12335);
+    sendIp = getCameraSettingString("SENDIP", "127.0.0.1");
+    minimised = getCameraSettingInt("MINIMISED", 0);
     
     receiver.setup(recievePort);
     sender.setup(sendIp, sendPort);
@@ -35,46 +43,54 @@ void ofApp::setup(){
 //    QVGA - 15, 30, 60, 75, 100, 125, 200
 //    VGA - 15, 30, 40, 50, 60, 75
     
-    vector<ofVideoDevice> deviceList = ofxPS3EyeGrabber().listDevices();
-    for (int i = 0; i < deviceList.size(); i++) {
-        camParameterGroup params;
-        params.setup(i);
-        camParams.push_back(params);
-        camParams[i].camExposure.addListener(this, &ofApp::onShutterChange);
-        camParams[i].camGain.addListener(this, &ofApp::onGainChange);
-        camParams[i].camSharpness.addListener(this, &ofApp::onSharpnessChanged);
-        camParams[i].camBrightness.addListener(this, &ofApp::onBrightnessChange);
-        camParams[i].camContrast.addListener(this, &ofApp::onContrastChange);
-        camParams[i].camRedBalance.addListener(this, &ofApp::onRedBalanceChanged);
-        camParams[i].camBlueBalance.addListener(this, &ofApp::onBlueBalanceChanged);
-        camParams[i].camGreenBalance.addListener(this, &ofApp::onGreenBalanceChanged);
-        camParams[i].camHue.addListener(this, &ofApp::onHueChange);
-        camParams[i].drawcam.addListener(this, &ofApp::onCamDrawChanged);
-        camParams[i].camAutoGain.addListener(this, &ofApp::onAutoGainAndShutterChange);
-        camParams[i].camAutoBalance.addListener(this, &ofApp::onAutoBalanceChanged);
-        camParams[i].camflipHoriz.addListener(this, &ofApp::onFlipHorizChanged);
-        camParams[i].camflipVert.addListener(this, &ofApp::onFlipVertChanged);
-        parameters.add(camParams[i].parameters);
-        
-    }
-    
     parameters.setName("settings");
-    gui.setup(parameters);
+    vector<ofVideoDevice> deviceList = ofxPS3EyeGrabber().listDevices();
     
     for (int i = 0; i < deviceList.size(); i++) {
+        ofLogNotice("ofApp::setup") << "Found PS3 Eye id 0x" << ofToHex(deviceList[i].id)
+                                    << " available=" << deviceList[i].bAvailable;
+        if (!deviceList[i].bAvailable) {
+            continue;
+        }
         
         ofxSyphonServer * server = new ofxSyphonServer();
         std::shared_ptr<ofxPS3EyeGrabber> camera = std::shared_ptr<ofxPS3EyeGrabber>(new ofxPS3EyeGrabber());
         ofTexture * texture = new ofTexture();
         
-        camera->setDeviceID(i);
+        camera->setDeviceID(deviceList[i].id);
         camera->setDesiredFrameRate(frameRate);
-        camera->setup(camWidth, camHeight);
+        if (!camera->setup(camWidth, camHeight)) {
+            ofLogWarning("ofApp::setup") << "Could not initialize PS3 Eye id 0x" << ofToHex(deviceList[i].id);
+            delete server;
+            delete texture;
+            continue;
+        }
+        
+        int camIndex = cameras.size();
+        camParameterGroup params;
+        params.setup(camIndex);
+        camParams.push_back(params);
+        camParams[camIndex].camExposure.addListener(this, &ofApp::onShutterChange);
+        camParams[camIndex].camGain.addListener(this, &ofApp::onGainChange);
+        camParams[camIndex].camSharpness.addListener(this, &ofApp::onSharpnessChanged);
+        camParams[camIndex].camBrightness.addListener(this, &ofApp::onBrightnessChange);
+        camParams[camIndex].camContrast.addListener(this, &ofApp::onContrastChange);
+        camParams[camIndex].camRedBalance.addListener(this, &ofApp::onRedBalanceChanged);
+        camParams[camIndex].camBlueBalance.addListener(this, &ofApp::onBlueBalanceChanged);
+        camParams[camIndex].camGreenBalance.addListener(this, &ofApp::onGreenBalanceChanged);
+        camParams[camIndex].camHue.addListener(this, &ofApp::onHueChange);
+        camParams[camIndex].drawcam.addListener(this, &ofApp::onCamDrawChanged);
+        camParams[camIndex].camAutoGain.addListener(this, &ofApp::onAutoGainAndShutterChange);
+        camParams[camIndex].camAutoBalance.addListener(this, &ofApp::onAutoBalanceChanged);
+        camParams[camIndex].camflipHoriz.addListener(this, &ofApp::onFlipHorizChanged);
+        camParams[camIndex].camflipVert.addListener(this, &ofApp::onFlipVertChanged);
+        parameters.add(camParams[camIndex].parameters);
+        
         camera->setAutogain(true);
         camera->setAutoWhiteBalance(true);
         cameras.push_back(camera);
         
-        server->setName("Camera " +ofToString(i+1)+" Output");
+        server->setName("Camera " +ofToString(camIndex+1)+" Output");
         servers.push_back(server);
         
         texture->allocate(camWidth, camHeight, GL_RGBA);
@@ -83,28 +99,29 @@ void ofApp::setup(){
         }
         
         
-        cameras[i]->setBrightness(uint8_t(camParams[i].camBrightness));
-        cameras[i]->setContrast(uint8_t(camParams[i].camContrast));
-        if (!camParams[i].camAutoGain) {
-            cameras[i]->setGain(uint8_t(camParams[i].camGain));
-            cameras[i]->setSharpness(uint8_t(63-camParams[i].camSharpness));
-            cameras[i]->setExposure(uint8_t(camParams[i].camExposure));
+        cameras[camIndex]->setBrightness(uint8_t(camParams[camIndex].camBrightness));
+        cameras[camIndex]->setContrast(uint8_t(camParams[camIndex].camContrast));
+        if (!camParams[camIndex].camAutoGain) {
+            cameras[camIndex]->setGain(uint8_t(camParams[camIndex].camGain));
+            cameras[camIndex]->setSharpness(uint8_t(63-camParams[camIndex].camSharpness));
+            cameras[camIndex]->setExposure(uint8_t(camParams[camIndex].camExposure));
         }
         
-        if (!camParams[i].camAutoBalance) {
-            cameras[i]->setRedBalance(uint8_t(camParams[i].camRedBalance));
-            cameras[i]->setBlueBalance(uint8_t(camParams[i].camBlueBalance));
-            cameras[i]->setGreenBalance(uint8_t(camParams[i].camGreenBalance));
-            cameras[i]->setHue(uint8_t(camParams[i].camHue));
+        if (!camParams[camIndex].camAutoBalance) {
+            cameras[camIndex]->setRedBalance(uint8_t(camParams[camIndex].camRedBalance));
+            cameras[camIndex]->setBlueBalance(uint8_t(camParams[camIndex].camBlueBalance));
+            cameras[camIndex]->setGreenBalance(uint8_t(camParams[camIndex].camGreenBalance));
+            cameras[camIndex]->setHue(uint8_t(camParams[camIndex].camHue));
         }
         
-        cameras[i]->setAutogain(camParams[i].camAutoGain);
-        cameras[i]->setAutoWhiteBalance(camParams[i].camAutoBalance);
-        //cameras[i]->setFlip(camParams[i].camflipHoriz, camParams[i].camflipVert);
+        cameras[camIndex]->setAutogain(camParams[camIndex].camAutoGain);
+        cameras[camIndex]->setAutoWhiteBalance(camParams[camIndex].camAutoBalance);
+        //cameras[camIndex]->setFlip(camParams[camIndex].camflipHoriz, camParams[camIndex].camflipVert);
         
     }
     
-    camCounter=deviceList.size();
+    camCounter=cameras.size();
+    gui.setup(parameters);
     ofBackground(0, 0, 0);
     
     portInputOutgoing.setup();
@@ -142,12 +159,17 @@ void ofApp::setup(){
 }
 
 void ofApp::exit(){
-    
-    for (int i = 0; i < cameras.size(); i++) {
-        cameras[i]->close();
-        textures[i]->~ofTexture();
-        servers[i]->~ofxSyphonServer();
+    for (auto * texture: textures) {
+        delete texture;
     }
+    textures.clear();
+    
+    for (auto * server: servers) {
+        delete server;
+    }
+    servers.clear();
+    
+    cameras.clear();
 }
 
 void ofApp::update(){
@@ -582,4 +604,3 @@ void ofApp:: onHueChange(const void * guiSender,int & value){
     hueMessage.addIntArg(camParams[camIdNumber].camHue);
     sender.sendMessage(hueMessage);
 }
-
