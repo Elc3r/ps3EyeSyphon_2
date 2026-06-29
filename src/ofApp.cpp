@@ -99,25 +99,7 @@ void ofApp::setup(){
         }
         
         
-        cameras[camIndex]->setBrightness(uint8_t(camParams[camIndex].camBrightness));
-        cameras[camIndex]->setContrast(uint8_t(camParams[camIndex].camContrast));
-        if (!camParams[camIndex].camAutoGain) {
-            cameras[camIndex]->setGain(uint8_t(camParams[camIndex].camGain));
-            cameras[camIndex]->setSharpness(uint8_t(63-camParams[camIndex].camSharpness));
-            cameras[camIndex]->setExposure(uint8_t(camParams[camIndex].camExposure));
-        }
-        
-        if (!camParams[camIndex].camAutoBalance) {
-            cameras[camIndex]->setRedBalance(uint8_t(camParams[camIndex].camRedBalance));
-            cameras[camIndex]->setBlueBalance(uint8_t(camParams[camIndex].camBlueBalance));
-            cameras[camIndex]->setGreenBalance(uint8_t(camParams[camIndex].camGreenBalance));
-            cameras[camIndex]->setHue(uint8_t(camParams[camIndex].camHue));
-        }
-        
-        cameras[camIndex]->setAutogain(camParams[camIndex].camAutoGain);
-        cameras[camIndex]->setAutoWhiteBalance(camParams[camIndex].camAutoBalance);
-        //cameras[camIndex]->setFlip(camParams[camIndex].camflipHoriz, camParams[camIndex].camflipVert);
-        
+        applyCameraSettings(camIndex);
     }
     
     camCounter=cameras.size();
@@ -154,6 +136,7 @@ void ofApp::setup(){
     }
     
     gui.loadFromFile("settings.xml");
+    applyCameraSettings();
 
     
 }
@@ -206,6 +189,7 @@ void ofApp::update(){
                 
                 if ( m.getAddress() == "/recallSaved" ){
                     gui.loadFromFile("settings.xml");
+                    applyCameraSettings();
                 }
                 
                 if ( m.getAddress() == "/"+ofToString(i+1)+"/autoGain" ){
@@ -338,6 +322,7 @@ void ofApp::keyPressed(int key){
     
     if (key=='r') {
         gui.loadFromFile("settings.xml");
+        applyCameraSettings();
     }
     
 }
@@ -384,11 +369,64 @@ void ofApp::dragEvent(ofDragInfo dragInfo){
 
 
 
+int ofApp::cameraIndexFromSender(const void * guiSender) const {
+    const auto * parameter = static_cast<const ofAbstractParameter *>(guiSender);
+    string idName = parameter->getName();
+    std::size_t marker = idName.rfind(" Cam ");
+    if (marker == string::npos) {
+        ofLogWarning("ofApp::cameraIndexFromSender") << "Could not parse camera id from parameter: " << idName;
+        return -1;
+    }
+
+    return ofToInt(idName.substr(marker + 5)) - 1;
+}
+
+bool ofApp::isValidCameraIndex(int camIndex) const {
+    if (camIndex < 0 || camIndex >= cameras.size() || camIndex >= camParams.size()) {
+        ofLogWarning("ofApp::isValidCameraIndex") << "Invalid camera index: " << camIndex;
+        return false;
+    }
+
+    return true;
+}
+
+void ofApp::applyCameraSettings() {
+    for (int i = 0; i < cameras.size(); i++) {
+        applyCameraSettings(i);
+    }
+}
+
+void ofApp::applyCameraSettings(int camIndex) {
+    if (!isValidCameraIndex(camIndex)) {
+        return;
+    }
+
+    cameras[camIndex]->setAutogain(camParams[camIndex].camAutoGain);
+    cameras[camIndex]->setAutoWhiteBalance(camParams[camIndex].camAutoBalance);
+    cameras[camIndex]->setBrightness(uint8_t(camParams[camIndex].camBrightness));
+    cameras[camIndex]->setContrast(uint8_t(camParams[camIndex].camContrast));
+    cameras[camIndex]->setSharpness(uint8_t(camParams[camIndex].camSharpness));
+    cameras[camIndex]->setFlipHorizontal(camParams[camIndex].camflipHoriz);
+    cameras[camIndex]->setFlipVertical(camParams[camIndex].camflipVert);
+
+    if (!camParams[camIndex].camAutoGain) {
+        cameras[camIndex]->setGain(uint8_t(camParams[camIndex].camGain));
+        cameras[camIndex]->setExposure(uint8_t(camParams[camIndex].camExposure));
+    }
+
+    if (!camParams[camIndex].camAutoBalance) {
+        cameras[camIndex]->setRedBalance(uint8_t(camParams[camIndex].camRedBalance));
+        cameras[camIndex]->setBlueBalance(uint8_t(camParams[camIndex].camBlueBalance));
+        cameras[camIndex]->setGreenBalance(uint8_t(camParams[camIndex].camGreenBalance));
+        cameras[camIndex]->setHue(uint8_t(camParams[camIndex].camHue));
+    }
+}
+
 void ofApp:: onAutoGainAndShutterChange(const void * guiSender,bool & value){
-    ofParameter<int> * p = ( ofParameter<int> * ) guiSender;
-    string idName = p->getName();
-    char lastChar = idName.at( idName.length() - 1 );
-    int camIdNumber= ofToInt(ofToString(lastChar))-1;
+    int camIdNumber = cameraIndexFromSender(guiSender);
+    if (!isValidCameraIndex(camIdNumber)) {
+        return;
+    }
     
     
     cameras[camIdNumber]->setAutogain(camParams[camIdNumber].camAutoGain);
@@ -404,10 +442,10 @@ void ofApp:: onAutoGainAndShutterChange(const void * guiSender,bool & value){
     }
 }
 void ofApp:: onGainChange(const void * guiSender,int & value){
-    ofParameter<int> * p = ( ofParameter<int> * ) guiSender;
-    string idName = p->getName();
-    char lastChar = idName.at( idName.length() - 1 );
-    int camIdNumber= ofToInt(ofToString(lastChar))-1;
+    int camIdNumber = cameraIndexFromSender(guiSender);
+    if (!isValidCameraIndex(camIdNumber)) {
+        return;
+    }
     if (!camParams[camIdNumber].camAutoGain) {
         cameras[camIdNumber]->setGain(uint8_t(camParams[camIdNumber].camGain));
         
@@ -419,10 +457,10 @@ void ofApp:: onGainChange(const void * guiSender,int & value){
     
 }
 void ofApp:: onShutterChange(const void * guiSender,int & value){
-    ofParameter<int> * p = ( ofParameter<int> * ) guiSender;
-    string idName = p->getName();
-    char lastChar = idName.at( idName.length() - 1 );
-    int camIdNumber= ofToInt(ofToString(lastChar))-1;
+    int camIdNumber = cameraIndexFromSender(guiSender);
+    if (!isValidCameraIndex(camIdNumber)) {
+        return;
+    }
     
     if (!camParams[camIdNumber].camAutoGain) {
         cameras[camIdNumber]->setExposure(uint8_t(camParams[camIdNumber].camExposure));
@@ -436,10 +474,10 @@ void ofApp:: onShutterChange(const void * guiSender,int & value){
 }
 
 void ofApp::onRedBalanceChanged(const void * guiSender,int & value){
-    ofParameter<int> * p = ( ofParameter<int> * ) guiSender;
-    string idName = p->getName();
-    char lastChar = idName.at( idName.length() - 1 );
-    int camIdNumber= ofToInt(ofToString(lastChar))-1;
+    int camIdNumber = cameraIndexFromSender(guiSender);
+    if (!isValidCameraIndex(camIdNumber)) {
+        return;
+    }
     if (!camParams[camIdNumber].camAutoBalance) {
         cameras[camIdNumber]->setRedBalance(uint8_t(camParams[camIdNumber].camRedBalance));
         
@@ -453,10 +491,10 @@ void ofApp::onRedBalanceChanged(const void * guiSender,int & value){
 }
 
 void ofApp::onBlueBalanceChanged(const void * guiSender,int & value){
-    ofParameter<int> * p = ( ofParameter<int> * ) guiSender;
-    string idName = p->getName();
-    char lastChar = idName.at( idName.length() - 1 );
-    int camIdNumber= ofToInt(ofToString(lastChar))-1;
+    int camIdNumber = cameraIndexFromSender(guiSender);
+    if (!isValidCameraIndex(camIdNumber)) {
+        return;
+    }
     if (!camParams[camIdNumber].camAutoBalance) {
     cameras[camIdNumber]->setBlueBalance(uint8_t(camParams[camIdNumber].camBlueBalance));
     
@@ -469,10 +507,10 @@ void ofApp::onBlueBalanceChanged(const void * guiSender,int & value){
 }
 
 void ofApp::onGreenBalanceChanged(const void * guiSender,int & value){
-    ofParameter<int> * p = ( ofParameter<int> * ) guiSender;
-    string idName = p->getName();
-    char lastChar = idName.at( idName.length() - 1 );
-    int camIdNumber= ofToInt(ofToString(lastChar))-1;
+    int camIdNumber = cameraIndexFromSender(guiSender);
+    if (!isValidCameraIndex(camIdNumber)) {
+        return;
+    }
     if (!camParams[camIdNumber].camAutoBalance) {
         cameras[camIdNumber]->setGreenBalance(uint8_t(camParams[camIdNumber].camGreenBalance));
         
@@ -486,12 +524,12 @@ void ofApp::onGreenBalanceChanged(const void * guiSender,int & value){
 }
 
 void ofApp::onFlipVertChanged(const void * guiSender,bool & value){
-    ofParameter<int> * p = ( ofParameter<int> * ) guiSender;
-    string idName = p->getName();
-    char lastChar = idName.at( idName.length() - 1 );
-    int camIdNumber= ofToInt(ofToString(lastChar))-1;
+    int camIdNumber = cameraIndexFromSender(guiSender);
+    if (!isValidCameraIndex(camIdNumber)) {
+        return;
+    }
     
-   // cameras[camIdNumber]->setFlip(camParams[camIdNumber].camflipHoriz, camParams[camIdNumber].camflipVert);
+    cameras[camIdNumber]->setFlipVertical(camParams[camIdNumber].camflipVert);
     
     ofxOscMessage flipMessage;
     flipMessage.setAddress("/"+ofToString(camIdNumber+1)+"/flip" );
@@ -500,12 +538,12 @@ void ofApp::onFlipVertChanged(const void * guiSender,bool & value){
     sender.sendMessage(flipMessage);
 }
 void ofApp::onFlipHorizChanged(const void * guiSender,bool & value){
-    ofParameter<int> * p = ( ofParameter<int> * ) guiSender;
-    string idName = p->getName();
-    char lastChar = idName.at( idName.length() - 1 );
-    int camIdNumber= ofToInt(ofToString(lastChar))-1;
+    int camIdNumber = cameraIndexFromSender(guiSender);
+    if (!isValidCameraIndex(camIdNumber)) {
+        return;
+    }
     
-   // cameras[camIdNumber]->setFlip(camParams[camIdNumber].camflipHoriz, camParams[camIdNumber].camflipVert);
+    cameras[camIdNumber]->setFlipHorizontal(camParams[camIdNumber].camflipHoriz);
     
     ofxOscMessage flipMessage;
     flipMessage.setAddress("/"+ofToString(camIdNumber+1)+"/flip" );
@@ -514,12 +552,12 @@ void ofApp::onFlipHorizChanged(const void * guiSender,bool & value){
     sender.sendMessage(flipMessage);
 }
 void ofApp::onSharpnessChanged(const void * guiSender,int & value){
-    ofParameter<int> * p = ( ofParameter<int> * ) guiSender;
-    string idName = p->getName();
-    char lastChar = idName.at( idName.length() - 1 );
-    int camIdNumber= ofToInt(ofToString(lastChar))-1;
+    int camIdNumber = cameraIndexFromSender(guiSender);
+    if (!isValidCameraIndex(camIdNumber)) {
+        return;
+    }
     
-    cameras[camIdNumber]->setSharpness(uint8_t(63 - camParams[camIdNumber].camSharpness));
+    cameras[camIdNumber]->setSharpness(uint8_t(camParams[camIdNumber].camSharpness));
     
     ofxOscMessage sharpnessMessage;
     sharpnessMessage.setAddress("/"+ofToString(camIdNumber+1)+"/sharpness" );
@@ -528,10 +566,10 @@ void ofApp::onSharpnessChanged(const void * guiSender,int & value){
 }
 
 void ofApp::onCamDrawChanged(const void * guiSender,bool & value){
-    ofParameter<int> * p = ( ofParameter<int> * ) guiSender;
-    string idName = p->getName();
-    char lastChar = idName.at( idName.length() - 1 );
-    int camIdNumber= ofToInt(ofToString(lastChar))-1;
+    int camIdNumber = cameraIndexFromSender(guiSender);
+    if (!isValidCameraIndex(camIdNumber)) {
+        return;
+    }
     
     
     ofxOscMessage drawMessage;
@@ -541,10 +579,10 @@ void ofApp::onCamDrawChanged(const void * guiSender,bool & value){
 }
 
 void ofApp::onAutoBalanceChanged(const void * guiSender,bool & value){
-    ofParameter<int> * p = ( ofParameter<int> * ) guiSender;
-    string idName = p->getName();
-    char lastChar = idName.at( idName.length() - 1 );
-    int camIdNumber= ofToInt(ofToString(lastChar))-1;
+    int camIdNumber = cameraIndexFromSender(guiSender);
+    if (!isValidCameraIndex(camIdNumber)) {
+        return;
+    }
     
     cameras[camIdNumber]->setAutoWhiteBalance(camParams[camIdNumber].camAutoBalance);
     
@@ -562,10 +600,10 @@ void ofApp::onAutoBalanceChanged(const void * guiSender,bool & value){
 }
 
 void ofApp:: onBrightnessChange(const void * guiSender,int & value){
-    ofParameter<int> * p = ( ofParameter<int> * ) guiSender;
-    string idName = p->getName();
-    char lastChar = idName.at( idName.length() - 1 );
-    int camIdNumber= ofToInt(ofToString(lastChar))-1;
+    int camIdNumber = cameraIndexFromSender(guiSender);
+    if (!isValidCameraIndex(camIdNumber)) {
+        return;
+    }
     
     cameras[camIdNumber]->setBrightness(uint8_t(camParams[camIdNumber].camBrightness));
     
@@ -576,10 +614,10 @@ void ofApp:: onBrightnessChange(const void * guiSender,int & value){
 }
 
 void ofApp:: onContrastChange(const void * guiSender,int & value){
-    ofParameter<int> * p = ( ofParameter<int> * ) guiSender;
-    string idName = p->getName();
-    char lastChar = idName.at( idName.length() - 1 );
-    int camIdNumber= ofToInt(ofToString(lastChar))-1;
+    int camIdNumber = cameraIndexFromSender(guiSender);
+    if (!isValidCameraIndex(camIdNumber)) {
+        return;
+    }
     
     cameras[camIdNumber]->setContrast(uint8_t(camParams[camIdNumber].camContrast));
     
@@ -590,10 +628,10 @@ void ofApp:: onContrastChange(const void * guiSender,int & value){
 }
 
 void ofApp:: onHueChange(const void * guiSender,int & value){
-    ofParameter<int> * p = ( ofParameter<int> * ) guiSender;
-    string idName = p->getName();
-    char lastChar = idName.at( idName.length() - 1 );
-    int camIdNumber= ofToInt(ofToString(lastChar))-1;
+    int camIdNumber = cameraIndexFromSender(guiSender);
+    if (!isValidCameraIndex(camIdNumber)) {
+        return;
+    }
     if (!camParams[camIdNumber].camAutoBalance) {
     cameras[camIdNumber]->setHue(uint8_t(camParams[camIdNumber].camHue));
     

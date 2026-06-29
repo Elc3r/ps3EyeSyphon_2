@@ -45,6 +45,10 @@ public:
     void onFlipVertChanged(const void * guiSender,bool & value);
     void onFlipHorizChanged(const void * guiSender,bool & value);
     void onAutoGainAndShutterChange(const void * guiSender,bool & value);
+    int cameraIndexFromSender(const void * guiSender) const;
+    bool isValidCameraIndex(int camIndex) const;
+    void applyCameraSettings(int camIndex);
+    void applyCameraSettings();
     
     bool bHide;
     
