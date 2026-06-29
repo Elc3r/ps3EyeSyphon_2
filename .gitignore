@@ -1,0 +1,12 @@
+# macOS
+.DS_Store
+
+# Xcode user state
+*.xcuserstate
+*.xcuserdata/
+xcuserdata/
+
+# Local build/cache output
+DerivedData/
+com.apple.DeveloperTools/
+bin/*.app/
