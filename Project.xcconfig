@@ -20,9 +20,9 @@ CODE_SIGN_IDENTITY = -
 INFOPLIST_FILE = openFrameworks-Info.plist
 GENERATE_INFOPLIST_FILE = YES
 
-// set application category to games, this is required to enable Game mode
+// set application category
 // note: this sets the initial value in the Xcode UI
-INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.games
+INFOPLIST_KEY_LSApplicationCategoryType = public.app-category.video
 
 // VERSIONING - overridden if changed in Xcode UI
 
