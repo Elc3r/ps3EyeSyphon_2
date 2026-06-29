@@ -13,7 +13,7 @@ This fork has been updated for openFrameworks 0.12.x and Apple Silicon builds.
   sharpness, hue, and white balance
 - OSC control for common camera settings
 - default capture mode: `640x480 @ 60 fps`
-- custom app icon included as `bin/data/icon.icns`
+- custom app icon included as `icon.icns`
 
 ## Requirements
 

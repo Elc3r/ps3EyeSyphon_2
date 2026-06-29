@@ -43,7 +43,7 @@ CURRENT_PROJECT_VERSION = 1
 // custom app icon
 ICON_NAME = icon.icns
 ICON_NAME[config=Debug] = icon.icns
-ICON_FILE = bin/data/$(ICON_NAME)
+ICON_FILE = $(ICON_NAME)
 
 // custom app icon, placed in main project folder
 //ICON_NAME = MyApp.icns
